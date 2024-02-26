@@ -70,6 +70,9 @@ class VoltageChannel(Channel):
         values={True: 1, False: 0},
     )
 
+    def shutdown(self):
+        self.output_enabled = False
+
 
 class KeysightE36312A(Instrument):
     """ Represents the Keysight E36312A Power supply
@@ -96,3 +99,7 @@ class KeysightE36312A(Instrument):
         )
         self.channels[1].voltage_setpoint_values = [0, 6]
         self.channels[1].current_limit_values = [0, 5]
+
+    def shutdown(self):
+        for _, ch in self.channels.items():
+            ch.shutdown()
