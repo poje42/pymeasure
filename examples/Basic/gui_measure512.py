@@ -88,7 +88,7 @@ class TestProcedure(Procedure):
         # self.meter.write('INIT')
         # sleep(1)
         # data = self.meter.values('FETC?')
-        data = self.meter.values('READ?', query_delay=1)
+        data = self.meter.values('READ?')
 
         for i, measure in enumerate(data):
             data = {
