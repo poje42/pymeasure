@@ -16,6 +16,19 @@ class InstrumentRegister:
         klass = getattr(mod, class_name)
         return klass
 
+    def create_dynamic_class(base_classes, class_name, class_attributes):
+        # Create a dictionary for class attributes/methods
+        class_dict = {}
+
+        # Add attributes to the class dictionary
+        class_dict.update(class_attributes)
+
+        # Create the class dynamically using type()
+        dynamic_class = type(class_name, base_classes, class_dict)
+
+        return dynamic_class
+
+
     @classmethod
     def populateIdCache(self):
         self.IdCache = dict()
@@ -38,32 +51,33 @@ class InstrumentRegister:
             return None
         else:
             kwargs = {**instrument_dict[instr].settings, **kwargs}
-            if instrument_dict[instr].adr == 'COM?':
+            adr = instrument_dict[instr].adr
+            if adr == 'COM?':
                 if not self.IdCache:
                     self.populateIdCache()
 
                 if instrument_dict[instr].serialId in self.IdCache:
-                    meter = self.import_class_from_string(instrument_dict[instr].driver)(self.IdCache[instrument_dict[instr].IdCache])
-                    return meter
-                return None
-            else:
-                print(f"Instr {instr}")
-                print("Driver: " + instrument_dict[instr].driver)
-                print("Addr  : " + instrument_dict[instr].adr)
-
-                ch = kwargs.pop('channel', None)
-                if ch:
-                    for obj in gc.get_objects():
-                        if isinstance(obj, Instrument):
-                            if obj.adapter.resource_name == instrument_dict[instr].adr:
-                                instr_class = obj
-                                break
-                    else:
-                        instr_class = self.import_class_from_string(instrument_dict[instr].driver)(instrument_dict[instr].adr, **kwargs)
-                    instr_class = getattr(instr_class, ch)
+                    adr = self.IdCache[instrument_dict[instr].IdCache]
                 else:
-                    instr_class = self.import_class_from_string(instrument_dict[instr].driver)(instrument_dict[instr].adr, **kwargs)
-                return instr_class
+                    return None
+
+            print(f"Instr {instr}")
+            print("Driver: " + instrument_dict[instr].driver)
+            print("Addr  : " + adr)
+
+            ch = kwargs.pop('channel', None)
+            if ch:
+                for obj in gc.get_objects():
+                    if isinstance(obj, Instrument):
+                        if obj.adapter.resource_name == adr:
+                            instr_class = obj
+                            break
+                else:
+                    instr_class = self.import_class_from_string(instrument_dict[instr].driver)(adr, **kwargs)
+                instr_class = getattr(instr_class, ch)
+            else:
+                instr_class = self.import_class_from_string(instrument_dict[instr].driver)(adr, **kwargs)
+            return instr_class
 
 
 def PrintDictionary(dictionary):

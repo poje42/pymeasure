@@ -48,7 +48,7 @@ class Agilent34401A(Instrument):
     MODES = {
         'current': 'CURR', 'current ac': 'CURR:AC',
         'voltage': 'VOLT', 'voltage ac': 'VOLT:AC',
-        'resistance': 'RES', 'resistance 4W': 'FRES',
+        'resistance': 'RES', 'resistance 4w': 'FRES',
         'period': 'PER', 'frequency': 'FREQ',
         'diode': 'DIOD', 'continuity': 'CONT',
         'voltage ratio': 'VOLT:RAT'
@@ -59,7 +59,7 @@ class Agilent34401A(Instrument):
         """ A string property that controls the configuration mode for measurements,
         which can take the values: ``current`` (DC), ``current ac``,
         ``voltage`` (DC),  ``voltage ac``, ``resistance`` (2-wire),
-        ``resistance 4W`` (4-wire), ``period``, ``diode``,
+        ``resistance 4w`` (4-wire), ``period``, ``diode``,
         ``continuity``, ``voltage ratio``, and ``frequency``.""",
         validator=strict_discrete_set,
         values=MODES,
@@ -273,7 +273,7 @@ class Agilent34401A(Instrument):
         validator=truncated_range,
         values=[-120e6, 120e6]
     )
-    resistance_4W_range = Instrument.control(
+    resistance_4w_range = Instrument.control(
         ":SENS:FRES:RANG?", ":SENS:FRES:RANG:AUTO 0;:SENS:FRES:RANG %g",
         """ A floating point property that controls the 4-wire resistance range
         in Ohms, which can take values from 0 to 100 MOhms.
@@ -281,20 +281,20 @@ class Agilent34401A(Instrument):
         validator=truncated_range,
         values=[0, 100e6]
     )
-    resistance_4W_nplc = Instrument.control(
+    resistance_4w_nplc = Instrument.control(
         ":SENS:FRES:NPLC?", ":SENS:FRES:NPLC %g",
         """ A floating point property that controls the number of power line cycles
         (NPLC) for the 4-wire resistance measurements, which sets the integration period
         and measurement speed. Takes values from 0.02 to 100, where 0.02, 0.2, 1,
         10 and 100 are defined levels. """
     )
-    resistance_4W_resolution = Instrument.control(
+    resistance_4w_resolution = Instrument.control(
         ":SENS:FRES:RES?", ":SENS:FRES:RES %g",
         """ A floating property that controls the resolution in Ohms. """,
         validator=truncated_range,
         values=[0, 100e6]
     )
-    resistance_4W_reference = Instrument.control(
+    resistance_4w_reference = Instrument.control(
         ":CALC:NULL:OFFS?", ":CALC:FUNC NULL;:CALC:STAT ON;:CALC:NULL:OFFS %g",
         """ A floating point property that controls the 4-wire resistance
         reference value in Ohms, which can take values from -120 to 120 MOhms. """,
@@ -462,8 +462,8 @@ class Agilent34401A(Instrument):
             self.mode = 'resistance'
             self.resistance_range = max_resistance
         elif wires == 4:
-            self.mode = 'resistance 4W'
-            self.resistance_4W_range = max_resistance
+            self.mode = 'resistance 4w'
+            self.resistance_4w_range = max_resistance
         else:
             raise ValueError("Agilent 34401A only supports 2 or 4 wire"
                              "resistance meaurements.")

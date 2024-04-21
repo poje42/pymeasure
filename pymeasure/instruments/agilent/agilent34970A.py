@@ -42,7 +42,7 @@ class BaseChannel(Channel):
         Subclass this method if you want to do something else,
         like always prepending the channel id.
         """
-        print(command.format_map({self.placeholder: self.id}))
+        # print(command.format_map({self.placeholder: self.id}))
         if "READ?" in command:
             ch = self.parent.working_ch
             if ch != self.id:
@@ -442,8 +442,8 @@ class VoltageChannel(BaseChannel):
             self.mode = 'resistance'
             self.resistance_range = max_resistance
         elif wires == 4:
-            self.mode = 'resistance 4W'
-            self.resistance_4W_range = max_resistance
+            self.mode = 'resistance 4w'
+            self.resistance_4w_range = max_resistance
         else:
             raise ValueError("Agilent 34970A only supports 2 or 4 wire"
                              "resistance meaurements.")
@@ -460,7 +460,7 @@ class VoltageChannel(BaseChannel):
 class Voltage4wChannel(VoltageChannel):
     MODES = {
         'voltage': 'VOLT', 'voltage ac': 'VOLT:AC',
-        'resistance': 'RES', 'resistance 4W': 'FRES',
+        'resistance': 'RES', 'resistance 4w': 'FRES',
         'period': 'PER', 'frequency': 'FREQ',
         'temperature': 'TEMP'
     }
@@ -469,7 +469,7 @@ class Voltage4wChannel(VoltageChannel):
         """ A string property that controls the configuration mode for measurements,
         which can take the values:
         ``voltage`` (DC),  ``voltage ac``, ``resistance`` (2-wire),
-        ``resistance 4W`` (4-wire), ``period``,
+        ``resistance 4w`` (4-wire), ``period``,
         ``temperature``, and ``frequency``.""",
         validator=strict_discrete_set,
         values=MODES,
@@ -477,7 +477,7 @@ class Voltage4wChannel(VoltageChannel):
         get_process=lambda v: v.replace('"', '')
     )
 
-    resistance_4W_range = Instrument.control(
+    resistance_4w_range = Instrument.control(
         ":FRES:RANG? (@{ch})", ":FRES:RANG:AUTO 0,(@{ch});:FRES:RANG %g,(@{ch})",
         """ A floating point property that controls the 4-wire resistance range
         in Ohms, which can take values from 0 to 100 MOhms.
@@ -485,22 +485,22 @@ class Voltage4wChannel(VoltageChannel):
         validator=truncated_range,
         values=[0, 100e6]
     )
-    resistance_4W_nplc = Instrument.control(
+    resistance_4w_nplc = Instrument.control(
         ":FRES:NPLC? (@{ch})", ":FRES:NPLC %g,(@{ch})",
         """ A floating point property that controls the number of power line cycles
         (NPLC) for the 4-wire resistance measurements, which sets the integration period
         and measurement speed. Takes values from 0.02 to 100, where 0.02, 0.2, 1,
         10 and 100 are defined levels. """
     )
-    resistance_4W_resolution = Instrument.control(
+    resistance_4w_resolution = Instrument.control(
         ":FRES:RES? (@{ch})", ":FRES:RES %g,(@{ch})",
         """ A floating property that controls the resolution in Ohms. """,
         validator=truncated_range,
         values=[0, 100e6]
     )
-    resistance_4W_reference = BaseChannel.reference
-    resistance_4W_gain = BaseChannel.gain
-    resistance_4W_unit = BaseChannel.unit
+    resistance_4w_reference = BaseChannel.reference
+    resistance_4w_gain = BaseChannel.gain
+    resistance_4w_unit = BaseChannel.unit
     # resistance_4W_reference = Instrument.control(
     #     ":CALC:SCAL:OFFS? (@{ch})", ":CALC:SCAL:STAT ON,(@{ch});:CALC:SCAL:OFFS %g,(@{ch})",
     #     """ A floating point property that controls the resistance reference
