@@ -76,6 +76,11 @@ class BaseChannel(Channel):
         """ A string property that controls a custom label of 3 characters. """
     )
 
+    ch_rly_cnt = Instrument.measurement(
+        "DIAG:REL:CYCL? (@{ch})",
+        """ Reads the relay counts on thde channel. """
+    )
+
     # def __init__(self, adapter, name="Agilent 34970A Multimeter", **kwargs):
     #     super().__init__(
     #         adapter, name, **kwargs
@@ -725,10 +730,29 @@ class Agilent34970A(Instrument):
         scan list. The string is a list of channels or a range
         101, 102, 108 or 101:110 """)
 
+    cal_msg = Instrument.measurement(
+        'CAL:STR?',
+        """ Gets a string containing the calibration message.
+        """)
+
     def card_type(self, slot):
         """ Get the card type for a slot.
         :param slot: A valid slot number (100, 200 or 300). """
         return self.ask(f'SYST:CTYP? {slot}').split(',')[1]
+
+    def slot_rly_cnt(self, slot):
+        """ Get all relay counts for a module.
+        :param slot: A valid slot number (100, 200 or 300). """
+        card = self.card_type(slot)
+        if card == '34901A':
+            return self.ask(f'DIAG:REL:CYCL? (@{slot+1}:{slot+22},{slot+95},{slot+96},{slot+97},{slot+98},{slot+99})')
+        if card == '34902A':          # Untested card!
+            return self.ask(f'DIAG:REL:CYCL? (@{slot+1}:{slot+16},{slot+97},{slot+98},{slot+99})')
+        return ''
+
+    def dmm_rly_cnt(self):
+        """ Get all relay counts for the DMM."""
+        return self.ask('DIAG:DMM:CYCL?')
 
     def local(self):
         """ Returns control to the instrument panel, and enables
