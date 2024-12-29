@@ -36,6 +36,52 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 
+def connect(address):
+    # Get the first adapter available
+    adapters = simplepyble.Adapter.get_adapters()
+    if not adapters:
+        print("No BLE adapters found.")
+        return None
+
+    adapter = adapters[0]
+    # Start scanning for devices
+    adapter.scan_for(5000)  # Scan for 5 seconds
+
+    # Find the device by name
+    devices = adapter.scan_get_results()
+    device = None
+    for dev in devices:
+        # if self.MULTIMETER_ADDRESS in dev.address():
+        if address or address == '':
+            if EEVBlog121GW.DEVICE_NAME in dev.identifier():
+                device = dev
+                break
+        else:
+            if address in dev.address():
+                device = dev
+                break
+
+    if not device:
+        print(f"Device '{EEVBlog121GW.MULTIMETER_ADDRESS}' not found.")
+        return None
+
+    print(f"Connecting to {device.identifier()}...")
+    try:
+        device.connect()
+    except Exception as e:
+        print(f"Failed to connect to device: {e}")
+        return None          
+
+    if not device.is_connected():
+        print(f"Failed to connect to {device.identifier()}.")
+        return None
+
+    print("Connected!")
+    return device
+
+
+
+
 class EEVBlog121GW(Instrument):
     """ Represents the EEVBlog 121GW Multimeter and provides a high-level
     interface for interacting with the instrument.
@@ -107,7 +153,7 @@ class EEVBlog121GW(Instrument):
     @property
     def reading(self):
         self.is_new_value = False
-        print('Start wait')
+        # print('Start wait')
         end = time.time() + 2
         while True:
             if self.is_new_value:
@@ -115,8 +161,18 @@ class EEVBlog121GW(Instrument):
             if (time.time() > end):
                 print("121GW Time out")
                 return 0.0
-        print('Get new value')
+        # print('Get new value')
         return self.main_value_float
+
+    def __new__(self, adapter, **kwargs):
+        device = connect(adapter)
+        if not device:
+            print('Class fails')
+            return None
+        # If successful, create the instance
+        instance = super().__new__(self)
+        instance.device = device  # Store the connected device
+        return instance
 
     def __init__(self, adapter, name="EEVBlog 121GW Multimeter", **kwargs):
         super().__init__(
@@ -125,7 +181,13 @@ class EEVBlog121GW(Instrument):
         self.buffer = bytearray()  # Buffer to collect incoming data
         self.is_waiting_for_start = True  # Flag to look for start command (0xF2)
         self.is_new_value = False
-        self.connect(adapter)
+        self.main_mode_short = ''
+        self.main_mode_long = ''
+        self.main_range = 0
+
+        self.device.indicate(self.SERVICE_UUID, self.CHARACTERISTIC_UUID, self.notification_handler)
+
+        # self.connect(adapter)
 
     def __del__(self):
         """Close connection upon garbage collection of the device."""
@@ -139,50 +201,16 @@ class EEVBlog121GW(Instrument):
             self.device.disconnect()
             print("Disconnected.")
 
-    def connect(self, address):
-        # Get the first adapter available
-        self.adapters = simplepyble.Adapter.get_adapters()
-        if not self.adapters:
-            print("No BLE adapters found.")
-            return
-
-        self.adapter = self.adapters[0]
-        # Start scanning for devices
-        self.adapter.scan_for(5000)  # Scan for 5 seconds
-
-        # Find the device by name
-        self.devices = self.adapter.scan_get_results()
-        self.device = None
-        for dev in self.devices:
-            if self.MULTIMETER_ADDRESS in dev.address():         
-                self.device = dev
-                break
-
-        if not self.device:
-            print(f"Device '{self.MULTIMETER_ADDRESS}' not found.")
-            return
-
-        print(f"Connecting to {self.device.identifier()}...")
-        self.device.connect()
-
-        if not self.device.is_connected():
-            print(f"Failed to connect to {self.device.identifier()}.")
-            return
-
-        print("Connected!")
-
-        self.device.indicate(self.SERVICE_UUID, self.CHARACTERISTIC_UUID, self.notification_handler)
-
     def parse_121GW_data(self, data):
-        print(f"Parse data: {data.hex()}")
+        # print(f"Parse data: {data.hex()}")
         # Validate checksum (XOR of bytes 0-17 should equal checksum byte)
         calculated_checksum = 0
         for i in range(18):  # XOR bytes 0-17
             calculated_checksum ^= data[i]
         
-        print(f"Calculated checksum: {calculated_checksum}")
+        # print(f"Calculated checksum: {calculated_checksum}")
         if calculated_checksum != data[18]:
-            print("Checksum is invalid.")
+            # print("Checksum is invalid.")
             return
 
         # Serial Number (Bytes 1-4)
@@ -191,20 +219,23 @@ class EEVBlog121GW(Instrument):
         # Main Mode and Range (Byte 5)
         main_mode_idx = data[5] & 0x1F  # Extract the mode (bits 4-0)
         main_range_idx = data[6] & 0x0F  # Extract the range (bits 3-0)
-        main_sign = -1 if (data[6] >> 6) & 0x01 else 1
-        main_ofl = (data[6] >> 7) & 0x01
 
         self.main_mode_short = self.MODE_RANGE_LIST[main_mode_idx][0]
         self.main_mode_long = self.MODE_RANGE_LIST[main_mode_idx][1]
-        main_range = self.MODE_RANGE_LIST[main_mode_idx][2][main_range_idx]
+        self.main_range = self.MODE_RANGE_LIST[main_mode_idx][2][main_range_idx]
         
         # Main Value (Bytes 7-8) -- Main value is spread across multiple bytes
         # According to your description:
         # - Bits 17 and 16 are in byte 5 (bits 7 and 6)
         # - Main Value itself is in bytes 7-8 (big-endian 16-bit value)
-        main_value = ((data[5] << 10) & 0x030000) | (data[7] << 8) | data[8]
-        self.main_value_float = main_value * main_sign * 10 ** main_range
+        main_sign = -1 if (data[6] >> 6) & 0x01 else 1
+        if (data[6] >> 7) & 0x01:  # OFL
+            self.main_value_float = 9.9E37 * main_sign
+        else:
+            main_value = ((data[5] << 10) & 0x030000) | (data[7] << 8) | data[8]
+            self.main_value_float = main_value * main_sign * 10 ** self.main_range
 
+        # print(f'Main value {self.main_value_float}')
         # Sub Mode and Range (Byte 9 and 10)
         sub_mode = data[9]
         sub_range = data[10] & 0x07  # Extract the range (bits 2-0)
@@ -223,18 +254,18 @@ class EEVBlog121GW(Instrument):
         icon_status_3 = data[17]
 
         self.is_new_value = True
-        print('New value True')    
+        # print('New value True')    
 
     def notification_handler(self, data):
         """Handle notifications received from the device."""
 
-        print(f"Notification: {data}")
+        # print(f"Notification: {data}")
         # Add your parsing logic here
         for byte in data:
             # Check for the start command 0xF2
             if self.is_waiting_for_start:
                 if byte == 0xF2:
-                    print("Start command (0xF2) detected. Beginning data collection.")
+                    # print("Start command (0xF2) detected. Beginning data collection.")
                     self.is_waiting_for_start = False  # Start buffering data after start command
                     self.buffer.append(byte)  # Add the start byte to the buffer
                 continue  # Skip collecting data until we find the start command
@@ -243,9 +274,10 @@ class EEVBlog121GW(Instrument):
             self.buffer.append(byte)
             
             # Once we have a full packet (19 bytes), process it
-            if len(self.buffer) == 19:
-                print("\nProcessing a complete packet:")
-                self.parse_121GW_data(self.buffer)  # Parse the full 19-byte packet
+            if len(self.buffer) > 18:
+                if len(self.buffer) == 19:
+                    # print("\nProcessing a complete packet:")
+                    self.parse_121GW_data(self.buffer)  # Parse the full 19-byte packet
                 self.buffer.clear()  # Reset the buffer for the next packet
                 self.is_waiting_for_start = True  # Start buffering data after start command
 

@@ -91,6 +91,21 @@ class Fluke5100B(Instrument):
         """
     )
 
+
+    @property
+    def output_enabled(self):
+        value = self.status
+        return True if ord(value[3]) & 0x01 else False
+
+    @output_enabled.setter
+    def output_enabled(self, value):
+        # print(value)
+        if value:
+            self.enable()
+        else:
+            self.disable()
+
+
     # frequency = Instrument.control(
     #     "GH?", "C%gH,",
     #     """ A floating point property that controls the voltage
